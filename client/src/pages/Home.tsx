@@ -3,10 +3,13 @@ import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 import CodeEditor from "@/components/CodeEditor";
 import OutputPane from "@/components/OutputPane";
+import DocPanel from "@/components/DocPanel";
+import PackageExplorer from "@/components/PackageExplorer";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Snippet } from "@shared/schema";
+import { lintCode, formatCode as prettierFormatCode } from "@/lib/lintingService";
 
 export default function Home() {
   const [code, setCode] = useLocalStorage("jsrunner-code", "// Welcome to JSRunner\n// Type your JavaScript code here and press Run\n\nfunction greet(name) {\n  return `Hello, ${name}!`;\n}\n\nconst message = greet('World');\nconsole.log(message);");
@@ -14,6 +17,7 @@ export default function Home() {
   const [consoleOutput, setConsoleOutput] = useState<any[]>([]);
   const [isExecuting, setIsExecuting] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'console' | 'docs' | 'packages'>('console');
   const { toast } = useToast();
 
   const runCode = async () => {
@@ -152,28 +156,26 @@ export default function Home() {
     setIsMobileMenuOpen(false);
   };
 
-  const formatCode = () => {
+  const formatCode = async () => {
     try {
-      // Using JSON to format the code - basic formatter
-      // In a real app, you'd use prettier or another formatter
-      const formatted = code
-        .replace(/\{/g, "{\n  ")
-        .replace(/\}/g, "\n}")
-        .replace(/;(?!\n)/g, ";\n")
-        .replace(/\n{3,}/g, "\n\n");
-      
+      setIsExecuting(true); // Show loading
+      // Use prettier-based formatter from our linting service
+      const formatted = await prettierFormatCode(code);
       setCode(formatted);
       
       toast({
         title: "Code formatted",
-        description: "Your code has been formatted."
+        description: "Your code has been formatted with Prettier"
       });
     } catch (error) {
+      console.error("Formatting error:", error);
       toast({
         title: "Format failed",
-        description: "Could not format the code.",
+        description: "Could not format the code. Check console for details.",
         variant: "destructive"
       });
+    } finally {
+      setIsExecuting(false);
     }
   };
 
@@ -288,9 +290,47 @@ export default function Home() {
           />
           
           <div className="flex-1 flex flex-col overflow-hidden">
-            <OutputPane 
-              outputs={consoleOutput}
-            />
+            <div className="flex border-b border-border">
+              <button
+                className={`py-2 px-4 font-medium text-sm ${activeTab === 'console' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                onClick={() => setActiveTab('console')}
+              >
+                Console
+              </button>
+              <button
+                className={`py-2 px-4 font-medium text-sm ${activeTab === 'docs' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                onClick={() => setActiveTab('docs')}
+              >
+                Documentation
+              </button>
+              <button
+                className={`py-2 px-4 font-medium text-sm ${activeTab === 'packages' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                onClick={() => setActiveTab('packages')}
+              >
+                Packages
+              </button>
+            </div>
+            
+            {activeTab === 'console' && (
+              <OutputPane outputs={consoleOutput} />
+            )}
+            
+            {activeTab === 'docs' && (
+              <DocPanel code={code} visible={true} />
+            )}
+            
+            {activeTab === 'packages' && (
+              <PackageExplorer 
+                visible={true} 
+                onSelectExample={(exampleCode) => {
+                  setCode(exampleCode);
+                  toast({
+                    title: "Package example loaded",
+                    description: "Example code has been inserted into the editor"
+                  });
+                }} 
+              />
+            )}
           </div>
         </div>
       </div>

@@ -8,10 +8,8 @@ import {
   FileCode,
   Copy,
   Download,
-  Settings,
-  Sparkles
+  Settings
 } from "lucide-react";
-import { getCodeCompletion } from "@/lib/aiService";
 import { useToast } from "@/hooks/use-toast";
 import { Editor } from "@monaco-editor/react";
 import { useTheme } from "@/components/ThemeProvider";
@@ -54,9 +52,8 @@ export default function CodeEditor({
   const [editorTheme, setEditorTheme] = useState(currentTheme.editorTheme);
   const [fontSize, setFontSize] = useState(14);
   const [autoRunEnabled, setAutoRunEnabled] = useState(true);
-  const [isGeneratingCompletion, setIsGeneratingCompletion] = useState(false);
   
-  // Store monaco instance for later use with completions
+  // Store monaco instance for later use
   const monacoRef = useRef<any>(null);
   
   const handleEditorDidMount = (editor: any, monaco: any) => {
@@ -67,69 +64,6 @@ export default function CodeEditor({
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
       onRun();
     });
-    
-    // Add keyboard shortcut for AI code completion (Ctrl+Shift+I or Cmd+Shift+I)
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyI, () => {
-      handleAICodeCompletion();
-    });
-  };
-  
-  const handleAICodeCompletion = async () => {
-    if (!editorRef.current || !monacoRef.current || isGeneratingCompletion) return;
-    
-    try {
-      setIsGeneratingCompletion(true);
-      
-      const editor = editorRef.current;
-      const monaco = monacoRef.current;
-      const position = editor.getPosition();
-      const positionOffset = editor.getModel().getOffsetAt(position);
-      
-      toast({
-        title: "Generating code...",
-        description: "AI is analyzing your code to provide a suggestion",
-        duration: 2000
-      });
-      
-      const suggestion = await getCodeCompletion(code, positionOffset);
-      
-      if (suggestion) {
-        // Insert the suggestion at the current cursor position
-        editor.executeEdits('ai-completion', [{
-          range: new monaco.Range(
-            position.lineNumber,
-            position.column,
-            position.lineNumber,
-            position.column
-          ),
-          text: suggestion,
-          forceMoveMarkers: true
-        }]);
-        
-        toast({
-          title: "Code suggestion added",
-          description: "AI-generated code has been inserted at cursor position",
-          duration: 3000
-        });
-      } else {
-        toast({
-          title: "No suggestion available",
-          description: "AI couldn't generate a meaningful suggestion for this context",
-          variant: "destructive",
-          duration: 3000
-        });
-      }
-    } catch (error) {
-      console.error("Error generating code completion:", error);
-      toast({
-        title: "Error generating code",
-        description: "There was an error generating the AI code suggestion",
-        variant: "destructive",
-        duration: 3000
-      });
-    } finally {
-      setIsGeneratingCompletion(false);
-    }
   };
   
   // Add auto-run debounce timer
@@ -283,29 +217,6 @@ export default function CodeEditor({
               </TooltipTrigger>
               <TooltipContent>
                 <p>Clear editor</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleAICodeCompletion}
-                  className="bg-primary/10 hover:bg-primary/20"
-                  disabled={isGeneratingCompletion}
-                >
-                  {isGeneratingCompletion ? (
-                    <Loader2 className="h-4 w-4 text-primary animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4 text-primary" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Generate AI code completion (Ctrl+Shift+I)</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
