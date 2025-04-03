@@ -245,6 +245,7 @@ export default function CodeEditor({
             scrollBeyondLastLine: false,
             automaticLayout: true,
             lineNumbers: "on",
+            lineNumbersMinChars: 3, // Set minimum width for line numbers
             folding: true,
             wordWrap: "on",
             tabSize: 2,

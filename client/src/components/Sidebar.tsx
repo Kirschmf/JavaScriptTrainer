@@ -93,7 +93,7 @@ export default function Sidebar({ onSelectExample, onNewScript, currentSnippetId
 
   return (
     <aside 
-      className={`border-r border-border w-full md:w-72 flex-shrink-0 bg-card overflow-hidden flex flex-col ${
+      className={`border-r border-border h-full w-full flex-shrink-0 bg-card overflow-hidden flex flex-col ${
         isOpen ? 'block absolute z-10 h-full' : 'hidden md:flex'
       }`}
     >

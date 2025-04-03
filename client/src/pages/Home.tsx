@@ -194,26 +194,104 @@ export default function Home() {
       />
       
       <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
-        <Sidebar 
-          onSelectExample={loadSnippet}
-          onNewScript={createNewSnippet}
-          currentSnippetId={currentSnippet?.id}
-          isOpen={isMobileMenuOpen}
+        <div className="flex-shrink-0 md:w-72">
+          <Sidebar 
+            onSelectExample={loadSnippet}
+            onNewScript={createNewSnippet}
+            currentSnippetId={currentSnippet?.id}
+            isOpen={isMobileMenuOpen}
+          />
+        </div>
+        
+        <div className="w-[8px] bg-border hover:bg-primary/20 transition-colors cursor-col-resize 
+          hidden md:block resize-x"
+          onMouseDown={(e) => {
+            const resizeHandle = e.currentTarget;
+            const sidebarWrapper = resizeHandle.previousSibling as HTMLElement;
+            const mainContentWrapper = resizeHandle.nextSibling as HTMLElement;
+            
+            // Initial sizes
+            const initialX = e.clientX;
+            const initialSidebarWidth = sidebarWrapper.getBoundingClientRect().width;
+            
+            const onMouseMove = (e: MouseEvent) => {
+              const deltaX = e.clientX - initialX;
+              
+              // Calculate new width
+              const newSidebarWidth = initialSidebarWidth + deltaX;
+              
+              // Minimum size constraint
+              const minWidth = 200;
+              const maxWidth = 500;
+              if (newSidebarWidth > minWidth && newSidebarWidth < maxWidth) {
+                sidebarWrapper.style.width = `${newSidebarWidth}px`;
+              }
+            };
+            
+            const onMouseUp = () => {
+              document.removeEventListener('mousemove', onMouseMove);
+              document.removeEventListener('mouseup', onMouseUp);
+            };
+            
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+          }}
         />
         
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-          <CodeEditor 
-            code={code} 
-            setCode={setCode} 
-            onRun={runCode} 
-            onFormat={formatCode} 
-            onClear={clearCode}
-            isExecuting={isExecuting}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <CodeEditor 
+              code={code} 
+              setCode={setCode} 
+              onRun={runCode} 
+              onFormat={formatCode} 
+              onClear={clearCode}
+              isExecuting={isExecuting}
+            />
+          </div>
+          
+          <div className="w-[8px] bg-border hover:bg-primary/20 transition-colors cursor-col-resize 
+            hidden md:block resize-x"
+            onMouseDown={(e) => {
+              const resizeHandle = e.currentTarget;
+              const codeEditorWrapper = resizeHandle.previousSibling as HTMLElement;
+              const outputWrapper = resizeHandle.nextSibling as HTMLElement;
+              
+              // Initial sizes
+              const initialX = e.clientX;
+              const initialEditorWidth = codeEditorWrapper.getBoundingClientRect().width;
+              const initialOutputWidth = outputWrapper.getBoundingClientRect().width;
+              
+              const onMouseMove = (e: MouseEvent) => {
+                const deltaX = e.clientX - initialX;
+                
+                // Calculate new widths
+                const newEditorWidth = initialEditorWidth + deltaX;
+                const newOutputWidth = initialOutputWidth - deltaX;
+                
+                // Minimum size constraints
+                const minWidth = 200;
+                if (newEditorWidth > minWidth && newOutputWidth > minWidth) {
+                  codeEditorWrapper.style.flexBasis = `${newEditorWidth}px`;
+                  outputWrapper.style.flexBasis = `${newOutputWidth}px`;
+                }
+              };
+              
+              const onMouseUp = () => {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+              };
+              
+              document.addEventListener('mousemove', onMouseMove);
+              document.addEventListener('mouseup', onMouseUp);
+            }}
           />
           
-          <OutputPane 
-            outputs={consoleOutput}
-          />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <OutputPane 
+              outputs={consoleOutput}
+            />
+          </div>
         </div>
       </div>
     </div>
