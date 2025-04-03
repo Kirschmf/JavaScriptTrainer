@@ -326,11 +326,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Execute code
   apiRouter.post("/execute", async (req, res) => {
-    const { code, snippetId } = req.body;
+    let { code, snippetId } = req.body;
     
     if (typeof code !== "string") {
       return res.status(400).json({ message: "Code must be a string" });
     }
+
+    // Process the code to ensure it works with or without semicolons
+    // Add semicolons to the end of lines that don't have them
+    // This helps prevent issues with automatic semicolon insertion (ASI)
+    code = code.split('\n')
+      .map(line => {
+        // Skip lines that are empty, comments only, or already end with a semicolon
+        line = line.trim();
+        if (!line || line.startsWith('//') || line.startsWith('/*') || line.endsWith('*/') || 
+            line.endsWith(';') || line.endsWith('{') || line.endsWith('}') || 
+            line.endsWith(':') || line.endsWith(',')) {
+          return line;
+        }
+        return line + ';';
+      })
+      .join('\n');
 
     // Clear previous console entries if snippetId is provided
     if (snippetId) {

@@ -47,10 +47,24 @@ export function getResourcesForTopic(topic: string): DocumentationResource[] {
  */
 export function getMethodDocumentation(methodName: string): MethodDocumentation | undefined {
   const lowerMethod = methodName.toLowerCase();
-  return methodDocs.find(doc => 
-    doc.name.toLowerCase() === lowerMethod ||
-    doc.name.toLowerCase().endsWith('.' + lowerMethod)
-  );
+  
+  // Try direct lookup first
+  const directMatch = methodDocs.find(doc => doc.name.toLowerCase() === lowerMethod);
+  if (directMatch) return directMatch;
+  
+  // Check for array methods with Array.prototype prefix
+  if (['map', 'filter', 'reduce', 'forEach', 'find', 'some', 'every', 'slice', 'splice', 
+       'concat', 'join', 'push', 'pop', 'shift', 'unshift', 'sort', 'reverse'].includes(lowerMethod)) {
+    return methodDocs.find(doc => doc.name.toLowerCase() === `array.prototype.${lowerMethod}`);
+  }
+  
+  // Check for string methods with String.prototype prefix
+  if (['replace', 'match', 'split', 'substring', 'slice', 'toLowerCase', 'toUpperCase'].includes(lowerMethod)) {
+    return methodDocs.find(doc => doc.name.toLowerCase() === `string.prototype.${lowerMethod}`);
+  }
+  
+  // Fallback to partial match (ends with the method name)
+  return methodDocs.find(doc => doc.name.toLowerCase().endsWith('.' + lowerMethod));
 }
 
 /**
@@ -67,20 +81,22 @@ export function extractMethodsFromCode(code: string): string[] {
     'slice', 'splice', 'concat', 'join', 'split', 'replace', 'match',
     'push', 'pop', 'shift', 'unshift', 'sort', 'reverse',
     'parseInt', 'parseFloat', 'toString', 'valueOf',
-    'setTimeout', 'setInterval', 'fetch', 'JSON.parse', 'JSON.stringify'
+    'setTimeout', 'setInterval', 'fetch', 'JSON.parse', 'JSON.stringify',
+    'Promise'
   ];
   
   // Look for method calls in the code
   commonMethods.forEach(method => {
-    const methodPattern = new RegExp(`\\.[${method[0]}]${method.slice(1)}\\s*\\(`, 'g');
-    if (methodPattern.test(code)) {
+    // Create a pattern that looks for the method name followed by parentheses
+    // This handles both object methods (.method()) and global functions (method())
+    const methodRegex = new RegExp(`(\\.|^|\\s+)${method}\\s*\\(`, 'g');
+    if (methodRegex.test(code)) {
       methods.push(method);
     }
   });
   
   // Create an array from methods with duplicate removal
-  const uniqueMethods = Array.from(new Set(methods.map(item => item)));
-  return uniqueMethods;
+  return Array.from(new Set(methods));
 }
 
 /**
