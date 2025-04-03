@@ -47,9 +47,9 @@ export default function CodeEditor({
 }: CodeEditorProps) {
   const editorRef = useRef<any>(null);
   const { toast } = useToast();
-  const { theme: appTheme } = useTheme();
-  // Always use dark theme for the editor
-  const [editorTheme, setEditorTheme] = useState("vs-dark");
+  const { currentTheme } = useTheme();
+  // Set editor theme based on our theme configuration
+  const [editorTheme, setEditorTheme] = useState(currentTheme.editorTheme);
   const [fontSize, setFontSize] = useState(14);
   const [autoRunEnabled, setAutoRunEnabled] = useState(true);
   
@@ -64,6 +64,11 @@ export default function CodeEditor({
   
   // Add auto-run debounce timer
   const autoRunTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Update editor theme when app theme changes
+  useEffect(() => {
+    setEditorTheme(currentTheme.editorTheme);
+  }, [currentTheme]);
   
   const handleEditorChange = (value: string | undefined) => {
     if (value !== undefined) {
