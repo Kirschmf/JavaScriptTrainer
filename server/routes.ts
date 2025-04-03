@@ -4,6 +4,47 @@ import { storage } from "./storage";
 import { z } from "zod";
 import { insertSnippetSchema, insertConsoleEntrySchema } from "@shared/schema";
 import vm from "vm2";
+import OpenAI from "openai";
+
+// Initialize OpenAI API client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// Function to get AI code completion
+async function getAICompletion(codeContext: string, language: string): Promise<string> {
+  try {
+    // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are an AI assistant providing intelligent code completions for ${language}. 
+          Provide only the code completion without any explanation or markdown formatting.
+          The completion should be a natural continuation of the provided code.
+          Analyze the code structure, variables, and functions to provide contextually appropriate completions.
+          Complete functions, methods, or code blocks that appear to be unfinished.
+          Use best practices and modern syntax for ${language}.`
+        },
+        {
+          role: "user",
+          content: `Complete this ${language} code. Be concise but helpful, and continue the logical flow of the code:\n\n${codeContext}`
+        }
+      ],
+      max_tokens: 250,
+      temperature: 0.3, // Lower temperature for more focused completions
+      top_p: 1,
+      frequency_penalty: 0,
+      presence_penalty: 0
+    });
+
+    return response.choices[0]?.message?.content?.trim() || "";
+  } catch (error) {
+    console.error("OpenAI API error:", error);
+    return "";
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -276,6 +317,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       error,
       executionTime: Date.now() - startTime
     });
+  });
+
+  // AI code completion endpoint
+  apiRouter.post("/ai/complete", async (req, res) => {
+    try {
+      const { code, position, language = "javascript" } = req.body;
+      
+      if (!code || position === undefined) {
+        return res.status(400).json({ message: "Code and cursor position are required" });
+      }
+
+      // Get the code before the cursor to provide context
+      const codeBeforeCursor = code.substring(0, position);
+      
+      // Call OpenAI for code completion
+      const completion = await getAICompletion(codeBeforeCursor, language);
+      
+      res.json({ completion });
+    } catch (error) {
+      console.error("Error getting AI completion:", error);
+      res.status(500).json({ message: "Failed to get AI completion" });
+    }
   });
 
   // Mount the API router
