@@ -48,13 +48,9 @@ export default function CodeEditor({
   const editorRef = useRef<any>(null);
   const { toast } = useToast();
   const { theme: appTheme } = useTheme();
+  // Always use dark theme for the editor
   const [editorTheme, setEditorTheme] = useState("vs-dark");
   const [fontSize, setFontSize] = useState(14);
-  
-  // Sync editor theme with app theme
-  useEffect(() => {
-    setEditorTheme(appTheme === "dark" ? "vs-dark" : "vs-light");
-  }, [appTheme]);
   
   const handleEditorDidMount = (editor: any, monaco: any) => {
     editorRef.current = editor;
@@ -210,13 +206,6 @@ export default function CodeEditor({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Editor Settings</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setEditorTheme("vs-dark")}>
-                Dark Theme
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setEditorTheme("vs-light")}>
-                Light Theme
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setFontSize(12)}>
                 Small Font
               </DropdownMenuItem>
@@ -245,7 +234,7 @@ export default function CodeEditor({
             scrollBeyondLastLine: false,
             automaticLayout: true,
             lineNumbers: "on",
-            lineNumbersMinChars: 3, // Set minimum width for line numbers
+            lineNumbersMinChars: 2, // Reduced width for line numbers
             folding: true,
             wordWrap: "on",
             tabSize: 2,
