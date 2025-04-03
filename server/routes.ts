@@ -46,6 +46,175 @@ async function getAICompletion(codeContext: string, language: string): Promise<s
   }
 }
 
+/**
+ * Explain code using OpenAI
+ * @param code The code to explain
+ * @returns A detailed explanation of the code
+ */
+async function explainCode(code: string): Promise<string> {
+  try {
+    if (!process.env.OPENAI_API_KEY) {
+      return 'OpenAI API key not found. Add an API key to use the explanation feature.';
+    }
+
+    // the newest OpenAI model is "gpt-4o" which was released May 13, 2024
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "You are a JavaScript expert who explains code clearly and concisely."
+        },
+        {
+          role: "user",
+          content: `Explain the following JavaScript code in detail. Focus on what it does, how it works, and any notable patterns or techniques used:\n\n${code}`
+        }
+      ],
+      temperature: 0.5,
+      max_tokens: 1000,
+    });
+
+    return response.choices[0]?.message?.content?.trim() || 'No explanation generated.';
+  } catch (error: any) {
+    console.error('Error explaining code:', error?.message || error);
+    return `Error explaining code: ${error?.message || 'Unknown error'}`;
+  }
+}
+
+/**
+ * Improve or refactor code using OpenAI
+ * @param code The code to improve
+ * @param instructions Specific instructions for improvement
+ * @returns Improved code and explanation
+ */
+async function improveCode(code: string, instructions: string): Promise<{ improvedCode: string; explanation: string }> {
+  try {
+    if (!process.env.OPENAI_API_KEY) {
+      return {
+        improvedCode: code,
+        explanation: 'OpenAI API key not found. Add an API key to use the code improvement feature.'
+      };
+    }
+
+    // the newest OpenAI model is "gpt-4o" which was released May 13, 2024
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "You are a JavaScript expert who improves code to be more efficient, readable, and follow best practices. Respond in JSON format with 'improvedCode' and 'explanation' keys."
+        },
+        {
+          role: "user",
+          content: `Improve the following JavaScript code. ${instructions}:\n\n${code}\n\nRespond with the improved code and an explanation of your changes in JSON format.`
+        }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.5,
+      max_tokens: 2000,
+    });
+
+    const result = JSON.parse(response.choices[0]?.message?.content || '{}');
+    
+    return {
+      improvedCode: result.improvedCode || code,
+      explanation: result.explanation || 'No explanation provided.'
+    };
+  } catch (error: any) {
+    console.error('Error improving code:', error?.message || error);
+    return {
+      improvedCode: code,
+      explanation: `Error improving code: ${error?.message || 'Unknown error'}`
+    };
+  }
+}
+
+/**
+ * Debug code using OpenAI
+ * @param code The code with issues
+ * @param error The error message if available
+ * @returns Fixed code and explanation
+ */
+async function debugCode(code: string, error?: string): Promise<{ fixedCode: string; explanation: string }> {
+  try {
+    if (!process.env.OPENAI_API_KEY) {
+      return {
+        fixedCode: code,
+        explanation: 'OpenAI API key not found. Add an API key to use the debugging feature.'
+      };
+    }
+
+    const errorContext = error ? `The code produced the following error: ${error}` : 'The code has issues that need to be fixed.';
+
+    // the newest OpenAI model is "gpt-4o" which was released May 13, 2024
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "You are a JavaScript debugging expert. Fix the provided code and explain what was wrong. Respond in JSON format with 'fixedCode' and 'explanation' keys."
+        },
+        {
+          role: "user",
+          content: `Debug this JavaScript code. ${errorContext}\n\n${code}\n\nRespond with the fixed code and an explanation in JSON format.`
+        }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+      max_tokens: 2000,
+    });
+
+    const result = JSON.parse(response.choices[0]?.message?.content || '{}');
+    
+    return {
+      fixedCode: result.fixedCode || code,
+      explanation: result.explanation || 'No explanation provided.'
+    };
+  } catch (error: any) {
+    console.error('Error debugging code:', error?.message || error);
+    return {
+      fixedCode: code,
+      explanation: `Error debugging code: ${error?.message || 'Unknown error'}`
+    };
+  }
+}
+
+/**
+ * Generate code example based on description
+ * @param description Description of what the code should do
+ * @param language Programming language
+ * @returns Generated code example
+ */
+async function generateCodeExample(description: string, language: string): Promise<string> {
+  try {
+    if (!process.env.OPENAI_API_KEY) {
+      return '// OpenAI API key not found. Add an API key to use the code generation feature.';
+    }
+
+    // the newest OpenAI model is "gpt-4o" which was released May 13, 2024
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert ${language} developer who writes clean, efficient, and well-commented code examples.`
+        },
+        {
+          role: "user",
+          content: `Write a ${language} code example that does the following: ${description}`
+        }
+      ],
+      temperature: 0.5,
+      max_tokens: 1500,
+    });
+
+    return response.choices[0]?.message?.content?.trim() || '// No code generated.';
+  } catch (error: any) {
+    console.error('Error generating code example:', error?.message || error);
+    return `// Error generating code example\n// ${error?.message || 'Unknown error'}`;
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
@@ -338,6 +507,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error getting AI completion:", error);
       res.status(500).json({ message: "Failed to get AI completion" });
+    }
+  });
+  
+  // Endpoint for explaining code
+  apiRouter.post("/ai/explain", async (req, res) => {
+    try {
+      const { code } = req.body;
+      
+      if (!code) {
+        return res.status(400).json({ message: "Code is required" });
+      }
+      
+      const explanation = await explainCode(code);
+      res.json({ explanation });
+    } catch (error) {
+      console.error("Error explaining code:", error);
+      res.status(500).json({ message: "Failed to explain code" });
+    }
+  });
+  
+  // Endpoint for improving/refactoring code
+  apiRouter.post("/ai/improve", async (req, res) => {
+    try {
+      const { code, instructions } = req.body;
+      
+      if (!code) {
+        return res.status(400).json({ message: "Code is required" });
+      }
+      
+      const result = await improveCode(code, instructions || "Make this code more efficient and follow best practices");
+      res.json(result);
+    } catch (error) {
+      console.error("Error improving code:", error);
+      res.status(500).json({ message: "Failed to improve code" });
+    }
+  });
+  
+  // Endpoint for debugging code
+  apiRouter.post("/ai/debug", async (req, res) => {
+    try {
+      const { code, error: errorMessage } = req.body;
+      
+      if (!code) {
+        return res.status(400).json({ message: "Code is required" });
+      }
+      
+      const result = await debugCode(code, errorMessage);
+      res.json(result);
+    } catch (error) {
+      console.error("Error debugging code:", error);
+      res.status(500).json({ message: "Failed to debug code" });
+    }
+  });
+  
+  // Endpoint for generating code examples
+  apiRouter.post("/ai/generate", async (req, res) => {
+    try {
+      const { description, language = "javascript" } = req.body;
+      
+      if (!description) {
+        return res.status(400).json({ message: "Description is required" });
+      }
+      
+      const code = await generateCodeExample(description, language);
+      res.json({ code });
+    } catch (error) {
+      console.error("Error generating code example:", error);
+      res.status(500).json({ message: "Failed to generate code example" });
     }
   });
 
