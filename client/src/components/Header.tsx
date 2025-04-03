@@ -23,6 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ThemeToggle } from "@/components/ThemeProvider";
 
 interface HeaderProps {
   onSave: () => void;
@@ -40,6 +41,7 @@ export default function Header({ onSave, onRun, toggleMobileMenu, isMobileMenuOp
           <div className="bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent font-bold text-xl mr-2">JSRunner</div>
         </div>
         <div className="text-muted-foreground text-sm hidden sm:block">JavaScript Runtime Environment</div>
+        <div className="text-muted-foreground text-xs hidden sm:block ml-2">by Matheus Kirsch</div>
       </div>
       
       <div className="flex space-x-3">
@@ -53,6 +55,8 @@ export default function Header({ onSave, onRun, toggleMobileMenu, isMobileMenuOp
         </Button>
         
         <div className="hidden md:flex space-x-3 items-center">
+          <ThemeToggle />
+          
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>

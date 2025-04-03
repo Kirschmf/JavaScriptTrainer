@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Editor } from "@monaco-editor/react";
+import { useTheme } from "@/components/ThemeProvider";
 import {
   Tooltip,
   TooltipContent,
@@ -46,8 +47,14 @@ export default function CodeEditor({
 }: CodeEditorProps) {
   const editorRef = useRef<any>(null);
   const { toast } = useToast();
-  const [theme, setTheme] = useState("vs-dark");
+  const { theme: appTheme } = useTheme();
+  const [editorTheme, setEditorTheme] = useState("vs-dark");
   const [fontSize, setFontSize] = useState(14);
+  
+  // Sync editor theme with app theme
+  useEffect(() => {
+    setEditorTheme(appTheme === "dark" ? "vs-dark" : "vs-light");
+  }, [appTheme]);
   
   const handleEditorDidMount = (editor: any, monaco: any) => {
     editorRef.current = editor;
@@ -203,10 +210,10 @@ export default function CodeEditor({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Editor Settings</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setTheme("vs-dark")}>
+              <DropdownMenuItem onClick={() => setEditorTheme("vs-dark")}>
                 Dark Theme
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme("vs-light")}>
+              <DropdownMenuItem onClick={() => setEditorTheme("vs-light")}>
                 Light Theme
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -230,7 +237,7 @@ export default function CodeEditor({
           defaultLanguage="javascript"
           value={code}
           onChange={handleEditorChange}
-          theme={theme}
+          theme={editorTheme}
           options={{
             minimap: { enabled: false },
             fontSize: fontSize,
