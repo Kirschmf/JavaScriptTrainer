@@ -51,6 +51,7 @@ export default function CodeEditor({
   // Always use dark theme for the editor
   const [editorTheme, setEditorTheme] = useState("vs-dark");
   const [fontSize, setFontSize] = useState(14);
+  const [autoRunEnabled, setAutoRunEnabled] = useState(true);
   
   const handleEditorDidMount = (editor: any, monaco: any) => {
     editorRef.current = editor;
@@ -61,9 +62,23 @@ export default function CodeEditor({
     });
   };
   
+  // Add auto-run debounce timer
+  const autoRunTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
   const handleEditorChange = (value: string | undefined) => {
     if (value !== undefined) {
       setCode(value);
+      
+      // Auto-run the code after a short delay (debounce), but only if autoRunEnabled is true
+      if (autoRunEnabled) {
+        if (autoRunTimerRef.current) {
+          clearTimeout(autoRunTimerRef.current);
+        }
+        
+        autoRunTimerRef.current = setTimeout(() => {
+          onRun();
+        }, 1000); // Wait 1 second after typing stops before running
+      }
     }
   };
   
@@ -215,6 +230,16 @@ export default function CodeEditor({
               <DropdownMenuItem onClick={() => setFontSize(16)}>
                 Large Font
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => setAutoRunEnabled(!autoRunEnabled)}
+                className="flex items-center justify-between"
+              >
+                Auto-Run Code
+                <span className={autoRunEnabled ? "text-green-500" : "text-red-500"}>
+                  {autoRunEnabled ? "Enabled" : "Disabled"}
+                </span>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -234,7 +259,7 @@ export default function CodeEditor({
             scrollBeyondLastLine: false,
             automaticLayout: true,
             lineNumbers: "on",
-            lineNumbersMinChars: 2, // Reduced width for line numbers
+            lineNumbersMinChars: 1, // Minimum possible width for line numbers
             folding: true,
             wordWrap: "on",
             tabSize: 2,
