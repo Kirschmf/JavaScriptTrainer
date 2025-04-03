@@ -5,6 +5,8 @@ import {
   consoleEntries,
   type ConsoleEntry
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Snippet operations
@@ -19,25 +21,27 @@ export interface IStorage {
   getConsoleEntries(snippetId: number): Promise<ConsoleEntry[]>;
   createConsoleEntry(entry: Omit<ConsoleEntry, 'id' | 'timestamp'>): Promise<ConsoleEntry>;
   clearConsoleEntries(snippetId: number): Promise<boolean>;
+  
+  // Database-specific operations
+  initializeDatabase(): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private snippets: Map<number, Snippet>;
-  private consoleEntries: Map<number, ConsoleEntry[]>;
-  private currentSnippetId: number;
-  private currentConsoleEntryId: number;
-
-  constructor() {
-    this.snippets = new Map();
-    this.consoleEntries = new Map();
-    this.currentSnippetId = 1;
-    this.currentConsoleEntryId = 1;
+export class PostgresStorage implements IStorage {
+  
+  constructor() {}
+  
+  // Helper to ensure examples exist in the database
+  async initializeDatabase(): Promise<void> {
+    // Check if examples already exist
+    const existingExamples = await this.getExamples();
     
-    // Add default examples
-    this.initializeExamples();
+    if (existingExamples.length === 0) {
+      console.log('Initializing database with example snippets...');
+      await this.seedExamples();
+    }
   }
-
-  private initializeExamples() {
+  
+  private async seedExamples() {
     const examples = [
       {
         title: "Basic Console Logging",
@@ -520,89 +524,121 @@ console.log(\`After withdrawal: \${account.balance}\`);
       }
     ];
     
-    examples.forEach(example => {
-      const id = this.currentSnippetId++;
-      this.snippets.set(id, {
-        id,
+    // Insert all examples
+    for (const example of examples) {
+      await db.insert(snippets).values({
         title: example.title,
-        description: example.description || "",
         code: example.code,
+        description: example.description,
         isExample: true,
-        createdAt: new Date().toISOString()
+        // Let the default value handle the timestamp
+        createdAt: new Date()
       });
-    });
+    }
   }
 
   async getSnippets(): Promise<Snippet[]> {
-    return Array.from(this.snippets.values());
+    return await db.query.snippets.findMany({
+      orderBy: desc(snippets.createdAt)
+    });
   }
 
   async getSnippet(id: number): Promise<Snippet | undefined> {
-    return this.snippets.get(id);
+    const result = await db.query.snippets.findFirst({
+      where: eq(snippets.id, id)
+    });
+    
+    return result || undefined;
   }
 
   async getExamples(): Promise<Snippet[]> {
-    return Array.from(this.snippets.values()).filter(snippet => snippet.isExample);
+    return await db.query.snippets.findMany({
+      where: eq(snippets.isExample, true),
+      orderBy: desc(snippets.createdAt)
+    });
   }
 
   async createSnippet(snippet: InsertSnippet): Promise<Snippet> {
-    const id = this.currentSnippetId++;
-    const newSnippet: Snippet = {
-      id,
-      title: snippet.title,
-      code: snippet.code,
-      description: snippet.description || null,
-      isExample: false,
-      createdAt: new Date().toISOString()
-    };
+    const result = await db.insert(snippets)
+      .values({
+        title: snippet.title,
+        code: snippet.code,
+        description: snippet.description,
+        isExample: false,
+        createdAt: new Date()
+      })
+      .returning();
     
-    this.snippets.set(id, newSnippet);
-    return newSnippet;
+    return result[0];
   }
 
   async updateSnippet(id: number, snippet: Partial<InsertSnippet>): Promise<Snippet | undefined> {
-    const existingSnippet = this.snippets.get(id);
+    // First check if the snippet exists
+    const existingSnippet = await this.getSnippet(id);
     
     if (!existingSnippet) {
       return undefined;
     }
     
-    const updatedSnippet = {
-      ...existingSnippet,
-      ...snippet
-    };
+    // Update the snippet
+    const result = await db.update(snippets)
+      .set({
+        ...snippet
+      })
+      .where(eq(snippets.id, id))
+      .returning();
     
-    this.snippets.set(id, updatedSnippet);
-    return updatedSnippet;
+    return result[0];
   }
 
   async deleteSnippet(id: number): Promise<boolean> {
-    return this.snippets.delete(id);
+    try {
+      // First delete associated console entries
+      await db.delete(consoleEntries)
+        .where(eq(consoleEntries.snippetId, id));
+      
+      // Then delete the snippet itself
+      const result = await db.delete(snippets)
+        .where(eq(snippets.id, id))
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error deleting snippet:", error);
+      return false;
+    }
   }
 
   async getConsoleEntries(snippetId: number): Promise<ConsoleEntry[]> {
-    return this.consoleEntries.get(snippetId) || [];
+    return await db.query.consoleEntries.findMany({
+      where: eq(consoleEntries.snippetId, snippetId),
+      orderBy: consoleEntries.timestamp
+    });
   }
 
   async createConsoleEntry(entry: Omit<ConsoleEntry, 'id' | 'timestamp'>): Promise<ConsoleEntry> {
-    const id = this.currentConsoleEntryId++;
-    const newEntry: ConsoleEntry = {
-      id,
-      ...entry,
-      timestamp: new Date().toISOString()
-    };
+    const result = await db.insert(consoleEntries)
+      .values({
+        snippetId: entry.snippetId,
+        type: entry.type,
+        content: entry.content
+      })
+      .returning();
     
-    const entries = this.consoleEntries.get(entry.snippetId) || [];
-    entries.push(newEntry);
-    this.consoleEntries.set(entry.snippetId, entries);
-    
-    return newEntry;
+    return result[0];
   }
 
   async clearConsoleEntries(snippetId: number): Promise<boolean> {
-    this.consoleEntries.set(snippetId, []);
-    return true;
+    try {
+      await db.delete(consoleEntries)
+        .where(eq(consoleEntries.snippetId, snippetId));
+      
+      return true;
+    } catch (error) {
+      console.error("Error clearing console entries:", error);
+      return false;
+    }
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new PostgresStorage();
