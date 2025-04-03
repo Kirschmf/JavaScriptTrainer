@@ -2,7 +2,13 @@ import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { insertSnippetSchema, insertConsoleEntrySchema } from "@shared/schema";
+import { 
+  insertSnippetSchema, 
+  insertConsoleEntrySchema,
+  insertChallengeCategorySchema,
+  insertChallengeSchema,
+  insertUserChallengeProgressSchema
+} from "@shared/schema";
 import vm from "vm2";
 import OpenAI from "openai";
 
@@ -591,6 +597,381 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating code example:", error);
       res.status(500).json({ message: "Failed to generate code example" });
+    }
+  });
+
+  // Challenge Category Routes
+  // Get all challenge categories
+  apiRouter.get("/challenge-categories", async (req, res) => {
+    try {
+      const categories = await storage.getChallengeCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching challenge categories:", error);
+      res.status(500).json({ message: "Failed to fetch challenge categories" });
+    }
+  });
+
+  // Get a single challenge category
+  apiRouter.get("/challenge-categories/:id", async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid category ID" });
+    }
+
+    try {
+      const category = await storage.getChallengeCategory(id);
+      if (!category) {
+        return res.status(404).json({ message: "Challenge category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      console.error("Error fetching challenge category:", error);
+      res.status(500).json({ message: "Failed to fetch challenge category" });
+    }
+  });
+
+  // Create a new challenge category
+  apiRouter.post("/challenge-categories", async (req, res) => {
+    try {
+      const categoryData = insertChallengeCategorySchema.parse(req.body);
+      const newCategory = await storage.createChallengeCategory(categoryData);
+      res.status(201).json(newCategory);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid category data", errors: error.errors });
+      }
+      console.error("Error creating challenge category:", error);
+      res.status(500).json({ message: "Failed to create challenge category" });
+    }
+  });
+
+  // Update a challenge category
+  apiRouter.put("/challenge-categories/:id", async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid category ID" });
+    }
+
+    try {
+      const categoryData = insertChallengeCategorySchema.partial().parse(req.body);
+      const updatedCategory = await storage.updateChallengeCategory(id, categoryData);
+      
+      if (!updatedCategory) {
+        return res.status(404).json({ message: "Challenge category not found" });
+      }
+
+      res.json(updatedCategory);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid category data", errors: error.errors });
+      }
+      console.error("Error updating challenge category:", error);
+      res.status(500).json({ message: "Failed to update challenge category" });
+    }
+  });
+
+  // Delete a challenge category
+  apiRouter.delete("/challenge-categories/:id", async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid category ID" });
+    }
+
+    try {
+      const success = await storage.deleteChallengeCategory(id);
+      if (!success) {
+        return res.status(404).json({ message: "Challenge category not found" });
+      }
+
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error deleting challenge category:", error);
+      res.status(500).json({ message: "Failed to delete challenge category" });
+    }
+  });
+
+  // Challenge Routes
+  // Get all challenges (optionally filtered by category)
+  apiRouter.get("/challenges", async (req, res) => {
+    try {
+      const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string, 10) : undefined;
+      const challenges = await storage.getChallenges(categoryId);
+      res.json(challenges);
+    } catch (error) {
+      console.error("Error fetching challenges:", error);
+      res.status(500).json({ message: "Failed to fetch challenges" });
+    }
+  });
+
+  // Get a single challenge
+  apiRouter.get("/challenges/:id", async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid challenge ID" });
+    }
+
+    try {
+      const challenge = await storage.getChallenge(id);
+      if (!challenge) {
+        return res.status(404).json({ message: "Challenge not found" });
+      }
+      res.json(challenge);
+    } catch (error) {
+      console.error("Error fetching challenge:", error);
+      res.status(500).json({ message: "Failed to fetch challenge" });
+    }
+  });
+
+  // Create a new challenge
+  apiRouter.post("/challenges", async (req, res) => {
+    try {
+      const challengeData = insertChallengeSchema.parse(req.body);
+      const newChallenge = await storage.createChallenge(challengeData);
+      res.status(201).json(newChallenge);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid challenge data", errors: error.errors });
+      }
+      console.error("Error creating challenge:", error);
+      res.status(500).json({ message: "Failed to create challenge" });
+    }
+  });
+
+  // Update a challenge
+  apiRouter.put("/challenges/:id", async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid challenge ID" });
+    }
+
+    try {
+      const challengeData = insertChallengeSchema.partial().parse(req.body);
+      const updatedChallenge = await storage.updateChallenge(id, challengeData);
+      
+      if (!updatedChallenge) {
+        return res.status(404).json({ message: "Challenge not found" });
+      }
+
+      res.json(updatedChallenge);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid challenge data", errors: error.errors });
+      }
+      console.error("Error updating challenge:", error);
+      res.status(500).json({ message: "Failed to update challenge" });
+    }
+  });
+
+  // Delete a challenge
+  apiRouter.delete("/challenges/:id", async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid challenge ID" });
+    }
+
+    try {
+      const success = await storage.deleteChallenge(id);
+      if (!success) {
+        return res.status(404).json({ message: "Challenge not found" });
+      }
+
+      res.status(204).end();
+    } catch (error) {
+      console.error("Error deleting challenge:", error);
+      res.status(500).json({ message: "Failed to delete challenge" });
+    }
+  });
+
+  // Challenge Progress Routes
+  // Get progress for a challenge
+  apiRouter.get("/challenges/:id/progress", async (req, res) => {
+    const challengeId = parseInt(req.params.id, 10);
+    if (isNaN(challengeId)) {
+      return res.status(400).json({ message: "Invalid challenge ID" });
+    }
+
+    try {
+      const progress = await storage.getChallengeProgress(challengeId);
+      if (!progress) {
+        return res.status(404).json({ message: "Challenge progress not found" });
+      }
+      res.json(progress);
+    } catch (error) {
+      console.error("Error fetching challenge progress:", error);
+      res.status(500).json({ message: "Failed to fetch challenge progress" });
+    }
+  });
+
+  // Create or update progress for a challenge
+  apiRouter.post("/challenges/:id/progress", async (req, res) => {
+    const challengeId = parseInt(req.params.id, 10);
+    if (isNaN(challengeId)) {
+      return res.status(400).json({ message: "Invalid challenge ID" });
+    }
+
+    try {
+      const progressData = insertUserChallengeProgressSchema.parse({
+        ...req.body,
+        challengeId
+      });
+      
+      const progress = await storage.createOrUpdateChallengeProgress(progressData);
+      res.status(201).json(progress);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid progress data", errors: error.errors });
+      }
+      console.error("Error updating challenge progress:", error);
+      res.status(500).json({ message: "Failed to update challenge progress" });
+    }
+  });
+
+  // Get all progress for all challenges
+  apiRouter.get("/challenge-progress", async (req, res) => {
+    try {
+      const progress = await storage.getAllChallengeProgress();
+      res.json(progress);
+    } catch (error) {
+      console.error("Error fetching all challenge progress:", error);
+      res.status(500).json({ message: "Failed to fetch challenge progress" });
+    }
+  });
+
+  // Validate challenge solution
+  apiRouter.post("/challenges/:id/validate", async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid challenge ID" });
+    }
+
+    const { code } = req.body;
+    if (typeof code !== "string") {
+      return res.status(400).json({ message: "Code must be a string" });
+    }
+
+    try {
+      // Get the challenge to access test cases
+      const challenge = await storage.getChallenge(id);
+      if (!challenge) {
+        return res.status(404).json({ message: "Challenge not found" });
+      }
+
+      // Parse test cases
+      const testCases = typeof challenge.testCases === 'string' 
+        ? JSON.parse(challenge.testCases) 
+        : challenge.testCases;
+
+      // Execute code for each test case and validate results
+      const results = [];
+      let allPassed = true;
+
+      for (const testCase of testCases) {
+        // Set up a sandbox for execution
+        const logs: any[] = [];
+        const errors: any[] = [];
+        
+        const sandbox = {
+          console: {
+            log: (...args: any[]) => {
+              const content = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+              ).join(' ');
+              logs.push(content);
+            },
+            error: (...args: any[]) => {
+              const content = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+              ).join(' ');
+              errors.push(content);
+            },
+            warn: (...args: any[]) => {},
+            info: (...args: any[]) => {},
+            table: (data: any) => {}
+          },
+          setTimeout: (fn: Function, delay: number) => {
+            if (delay > 1000) delay = 1000; // Limit timeouts to 1 second for tests
+            setTimeout(() => {
+              try {
+                fn();
+              } catch (error) {}
+            }, delay);
+          }
+        };
+
+        interface TestResult {
+          pass: boolean;
+          input: any;
+          expected: any;
+          actual: any;
+          error: { name: string; message: string } | null;
+        }
+        
+        let testResult: TestResult = {
+          pass: false,
+          input: testCase.input,
+          expected: testCase.expected,
+          actual: null,
+          error: null
+        };
+
+        try {
+          // Execute the code in the sandbox
+          const vm2 = new vm.VM({ 
+            timeout: 2000, // 2 second timeout for tests
+            sandbox
+          });
+          
+          // Execute the code
+          const result = await vm2.run(code);
+          
+          // Compare the result with the expected output
+          // For simple cases, a direct comparison might work
+          // For more complex cases, you might need to check logs or specific values
+          
+          if (logs.length > 0) {
+            // If there are logs, check if the last log matches the expected output
+            const lastLog = logs[logs.length - 1];
+            testResult.actual = lastLog;
+            testResult.pass = JSON.stringify(lastLog) === JSON.stringify(testCase.expected);
+          } else {
+            // Otherwise, compare the direct result
+            testResult.actual = result;
+            testResult.pass = JSON.stringify(result) === JSON.stringify(testCase.expected);
+          }
+          
+        } catch (err: any) {
+          testResult.error = {
+            name: err?.name || 'Error',
+            message: err?.message || 'Unknown error'
+          };
+          testResult.pass = false;
+        }
+
+        results.push(testResult);
+        if (!testResult.pass) {
+          allPassed = false;
+        }
+      }
+
+      // If all tests passed, update the progress
+      if (allPassed) {
+        await storage.createOrUpdateChallengeProgress({
+          challengeId: id,
+          userCode: code,
+          completed: true
+        });
+      }
+
+      res.json({
+        success: allPassed,
+        results,
+        message: allPassed ? "All tests passed!" : "Some tests failed."
+      });
+      
+    } catch (error) {
+      console.error("Error validating challenge:", error);
+      res.status(500).json({ message: "Failed to validate challenge" });
     }
   });
 
