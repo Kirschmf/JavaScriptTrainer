@@ -10,4 +10,98 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+  
+  /* Custom scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted rounded-full hover:bg-muted-foreground/50 transition-colors;
+  }
+}
+
+/* Monaco editor customizations */
+.monaco-editor .minimap {
+  opacity: 0.6;
+}
+
+.monaco-editor .current-line {
+  @apply border-l-2 border-primary !important;
+}
+
+.monaco-editor .monaco-editor-background {
+  @apply bg-background;
+}
+
+/* Animation for hover effects */
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 5s ease infinite;
+}
+
+/* Enhance code font readability */
+code, pre, .monaco-editor {
+  font-family: 'Fira Code', monospace;
+  font-feature-settings: 'calt' 1, 'ss01' 1;
+}
+
+/* Add a subtle shadow to cards for depth */
+.shadow-subtle {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Custom badge and pill styling */
+.badge {
+  @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+}
+
+.badge-primary {
+  @apply bg-primary/10 text-primary;
+}
+
+.badge-success {
+  @apply bg-green-500/10 text-green-500;
+}
+
+.badge-warning {
+  @apply bg-amber-500/10 text-amber-500;
+}
+
+.badge-error {
+  @apply bg-destructive/10 text-destructive;
+}
+
+/* Pulse animation for run button */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+}
+
+.pulse-animation {
+  animation: pulse 2s infinite;
 }

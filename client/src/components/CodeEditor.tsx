@@ -1,9 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Play, AlignLeft, Trash2 } from "lucide-react";
-import { Loader2 } from "lucide-react";
+import { 
+  Play, 
+  AlignLeft, 
+  Trash2, 
+  Loader2, 
+  FileCode,
+  Copy,
+  Download,
+  Settings
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Editor } from "@monaco-editor/react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface CodeEditorProps {
   code: string;
@@ -24,8 +46,10 @@ export default function CodeEditor({
 }: CodeEditorProps) {
   const editorRef = useRef<any>(null);
   const { toast } = useToast();
+  const [theme, setTheme] = useState("vs-dark");
+  const [fontSize, setFontSize] = useState(14);
   
-  const handleEditorDidMount = (editor: any) => {
+  const handleEditorDidMount = (editor: any, monaco: any) => {
     editorRef.current = editor;
     
     // Add keyboard shortcut for running code (Ctrl+Enter or Cmd+Enter)
@@ -40,47 +64,163 @@ export default function CodeEditor({
     }
   };
   
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(code);
+    toast({
+      title: "Code copied!",
+      description: "Code has been copied to clipboard",
+      duration: 2000
+    });
+  };
+  
+  const downloadCode = () => {
+    const blob = new Blob([code], { type: 'text/javascript' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'jsrunner-code.js';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Code downloaded",
+      description: "Your JavaScript code has been downloaded",
+      duration: 2000
+    });
+  };
+  
   return (
     <div className="flex-1 flex flex-col h-full border-r border-border">
-      <div className="bg-card p-2 flex justify-between items-center">
+      <div className="bg-card p-2 flex justify-between items-center border-b border-border">
         <div className="flex items-center">
-          <Button
-            variant="default"
-            size="sm"
-            className="flex items-center"
-            onClick={onRun}
-            disabled={isExecuting}
-          >
-            {isExecuting ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Play className="mr-2 h-4 w-4" />
-            )}
-            <span>Run</span>
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="flex items-center bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-700"
+                  onClick={onRun}
+                  disabled={isExecuting}
+                >
+                  {isExecuting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="mr-2 h-4 w-4" />
+                  )}
+                  <span>Run</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Execute code (Ctrl+Enter)</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
           <div className="ml-2 text-muted-foreground text-sm hidden md:flex items-center">
-            <span>Ctrl+Enter to run</span>
+            <FileCode className="h-4 w-4 mr-1 text-primary" />
+            <span>JavaScript</span>
           </div>
         </div>
         
         <div className="flex space-x-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onFormat}
-            title="Format Code"
-          >
-            <AlignLeft className="h-4 w-4" />
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={copyToClipboard}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Copy code</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClear}
-            title="Clear Editor"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={downloadCode}
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Download as .js file</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onFormat}
+                >
+                  <AlignLeft className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Format code</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onClear}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Clear editor</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Editor Settings</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setTheme("vs-dark")}>
+                Dark Theme
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("vs-light")}>
+                Light Theme
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setFontSize(12)}>
+                Small Font
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFontSize(14)}>
+                Medium Font
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFontSize(16)}>
+                Large Font
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       
@@ -90,17 +230,21 @@ export default function CodeEditor({
           defaultLanguage="javascript"
           value={code}
           onChange={handleEditorChange}
-          theme="vs-dark"
+          theme={theme}
           options={{
             minimap: { enabled: false },
-            fontSize: 14,
+            fontSize: fontSize,
             fontFamily: "'Fira Code', monospace",
             scrollBeyondLastLine: false,
             automaticLayout: true,
             lineNumbers: "on",
             folding: true,
             wordWrap: "on",
-            tabSize: 2
+            tabSize: 2,
+            cursorBlinking: "smooth",
+            contextmenu: true,
+            smoothScrolling: true,
+            cursorSmoothCaretAnimation: "on",
           }}
           onMount={handleEditorDidMount}
         />
