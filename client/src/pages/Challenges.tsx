@@ -203,7 +203,9 @@ export default function ChallengesPage() {
                       {
                         (() => {
                           try {
-                            const hints = selectedChallenge.hints ? JSON.parse(selectedChallenge.hints) : [];
+                            // Parse hints if available and ensure it's a string before parsing
+                            const hintsText = selectedChallenge.hints || "[]";
+                            const hints = typeof hintsText === 'string' ? JSON.parse(hintsText) : [];
                             return Array.isArray(hints) ? hints.map((hint: string, i: number) => (
                               <li key={i} className="text-sm text-muted-foreground">{hint}</li>
                             )) : null;

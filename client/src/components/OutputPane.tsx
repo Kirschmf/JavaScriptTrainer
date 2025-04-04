@@ -10,7 +10,9 @@ import {
   Trash2, 
   Code,
   Download, 
-  FileCode
+  FileCode,
+  ArrowDown,
+  ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -44,16 +46,71 @@ export default function OutputPane({ outputs }: OutputPaneProps) {
   const [filter, setFilter] = useState<OutputType | 'all'>('all');
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  
+  const filteredOutputs = filter === 'all' 
+    ? outputs 
+    : outputs.filter(output => output.type === filter);
+  
+  // Function to scroll to the bottom
+  const scrollToBottom = () => {
+    requestAnimationFrame(() => {
+      if (scrollAreaRef.current) {
+        const scrollArea = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+        if (scrollArea) {
+          scrollArea.scrollTop = scrollArea.scrollHeight;
+          setShowScrollButton(false);
+        }
+      }
+    });
+  };
+  
+  // Listen for scroll events to show/hide the scroll button
+  useEffect(() => {
+    const scrollArea = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    
+    if (!scrollArea) return;
+    
+    const handleScroll = () => {
+      // Check if user has scrolled up at least 100px from bottom
+      const isScrolledUp = 
+        scrollArea.scrollHeight - scrollArea.scrollTop - scrollArea.clientHeight > 100;
+      
+      setShowScrollButton(isScrolledUp);
+    };
+    
+    scrollArea.addEventListener('scroll', handleScroll);
+    
+    return () => {
+      scrollArea.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
   
   // Auto scroll to bottom when outputs change
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      const scrollArea = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollArea) {
-        scrollArea.scrollTop = scrollArea.scrollHeight;
+    // Use requestAnimationFrame to ensure the DOM has updated before scrolling
+    requestAnimationFrame(() => {
+      if (scrollAreaRef.current) {
+        const scrollArea = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+        if (scrollArea) {
+          // Ensure we're at the very bottom
+          scrollArea.scrollTop = scrollArea.scrollHeight;
+        }
       }
-    }
-  }, [outputs]);
+    });
+    
+    // Add a small delay scroll as a fallback to handle any post-rendering content
+    const delayedScroll = setTimeout(() => {
+      if (scrollAreaRef.current) {
+        const scrollArea = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+        if (scrollArea) {
+          scrollArea.scrollTop = scrollArea.scrollHeight;
+        }
+      }
+    }, 50);
+    
+    return () => clearTimeout(delayedScroll);
+  }, [outputs, activeTab, filter]);
   
   const getIconForOutputType = (type: OutputType) => {
     switch (type) {
@@ -95,10 +152,6 @@ export default function OutputPane({ outputs }: OutputPaneProps) {
         return '';
     }
   };
-  
-  const filteredOutputs = filter === 'all' 
-    ? outputs 
-    : outputs.filter(output => output.type === filter);
     
   const copyOutputsToClipboard = () => {
     const text = outputs.map(output => output.content).join('\n');
@@ -249,32 +302,55 @@ export default function OutputPane({ outputs }: OutputPaneProps) {
             </div>
           )}
           
-          <ScrollArea className="flex-1 p-3 font-mono text-sm" ref={scrollAreaRef}>
-            {filteredOutputs.length === 0 ? (
-              <div className="text-muted-foreground italic flex flex-col items-center justify-center h-32 text-center">
-                <Terminal className="h-8 w-8 text-muted-foreground/50 mb-2" />
-                {outputs.length === 0 
-                  ? "No output yet. Run your code to see results here." 
-                  : "No output matches the selected filter type."}
-              </div>
-            ) : (
-              filteredOutputs.map((output, index) => (
-                <div 
-                  key={index} 
-                  className={`mb-2 rounded-md p-2 flex items-start ${getBgClassForOutputType(output.type)}`}
-                >
-                  {getIconForOutputType(output.type) && (
-                    <span className="mr-2 mt-0.5 flex-shrink-0">
-                      {getIconForOutputType(output.type)}
-                    </span>
-                  )}
-                  <pre className={`whitespace-pre-wrap break-words font-mono ${getClassForOutputType(output.type)}`}>
-                    {output.content}
-                  </pre>
+          <div className="relative flex-1">
+            <ScrollArea className="flex-1 p-3 font-mono text-sm" ref={scrollAreaRef}>
+              {filteredOutputs.length === 0 ? (
+                <div className="text-muted-foreground italic flex flex-col items-center justify-center h-32 text-center">
+                  <Terminal className="h-8 w-8 text-muted-foreground/50 mb-2" />
+                  {outputs.length === 0 
+                    ? "No output yet. Run your code to see results here." 
+                    : "No output matches the selected filter type."}
                 </div>
-              ))
+              ) : (
+                filteredOutputs.map((output, index) => (
+                  <div 
+                    key={index} 
+                    className={`mb-2 rounded-md p-2 flex items-start ${getBgClassForOutputType(output.type)}`}
+                  >
+                    {getIconForOutputType(output.type) && (
+                      <span className="mr-2 mt-0.5 flex-shrink-0">
+                        {getIconForOutputType(output.type)}
+                      </span>
+                    )}
+                    <pre className={`whitespace-pre-wrap break-words font-mono ${getClassForOutputType(output.type)}`}>
+                      {output.content}
+                    </pre>
+                  </div>
+                ))
+              )}
+            </ScrollArea>
+            
+            {/* Scroll to bottom button */}
+            {showScrollButton && filteredOutputs.length > 0 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="absolute bottom-4 right-4 shadow-md h-8 w-8 rounded-full opacity-80 hover:opacity-100 transition-opacity"
+                      onClick={scrollToBottom}
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Scroll to bottom</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
-          </ScrollArea>
+          </div>
         </TabsContent>
         
         <TabsContent value="output" className="flex-1 p-0 m-0 flex flex-col">
