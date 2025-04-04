@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
@@ -46,20 +46,108 @@ export default function OutputPane({ outputs }: OutputPaneProps) {
   const [filter, setFilter] = useState<OutputType | 'all'>('all');
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const [scrollPosition, setScrollPosition] = useState(0);
+  const lastOutputLengthRef = useRef(outputs.length);
   
   const filteredOutputs = filter === 'all' 
     ? outputs 
     : outputs.filter(output => output.type === filter);
   
-  // Function to scroll to the bottom - only used by the manual scroll button
-  const scrollToBottom = () => {
-    if (scrollAreaRef.current) {
-      const scrollArea = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollArea) {
-        scrollArea.scrollTop = scrollArea.scrollHeight;
+  // Scroll position detection hook with performance optimization
+  useEffect(() => {
+    const scrollArea = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (!scrollArea) return;
+    
+    let scrollTimeout: number;
+    let isScrolling = false;
+    
+    const handleScroll = () => {
+      if (!isScrolling) {
+        // Using requestAnimationFrame to optimize the scroll handling
+        isScrolling = true;
+        requestAnimationFrame(() => {
+          const { scrollTop, scrollHeight, clientHeight } = scrollArea as HTMLDivElement;
+          const bottomThreshold = 80; // px from bottom
+          const isNearBottom = scrollHeight - scrollTop - clientHeight < bottomThreshold;
+          
+          setScrollPosition(scrollTop);
+          setShowScrollButton(!isNearBottom && filteredOutputs.length > 5);
+          
+          // Mark user as actively scrolling
+          if (!isUserScrolling) {
+            setIsUserScrolling(true);
+            // Clear any existing timeout
+            clearTimeout(scrollTimeout);
+            // Reset after a delay
+            scrollTimeout = window.setTimeout(() => setIsUserScrolling(false), 800);
+          }
+          
+          isScrolling = false;
+        });
       }
+    };
+    
+    scrollArea.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      scrollArea.removeEventListener('scroll', handleScroll);
+      clearTimeout(scrollTimeout);
+    };
+  }, [filteredOutputs.length, isUserScrolling]);
+  
+  // Auto-scroll to the bottom when new output is added ONLY if already at the bottom
+  useEffect(() => {
+    // Check if outputs were added (not filtered or cleared)
+    const outputsAdded = outputs.length > lastOutputLengthRef.current;
+    lastOutputLengthRef.current = outputs.length;
+    
+    if (!outputsAdded) return;
+    
+    const scrollArea = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLDivElement;
+    if (!scrollArea) return;
+    
+    // Only auto-scroll if the user was already at the bottom or not actively scrolling
+    const { scrollTop, scrollHeight, clientHeight } = scrollArea;
+    const wasAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+    
+    if (wasAtBottom && !isUserScrolling) {
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
     }
-  };
+  }, [outputs.length, isUserScrolling]);
+  
+  // Smooth scroll to bottom function
+  const scrollToBottom = useCallback(() => {
+    const scrollArea = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLDivElement;
+    if (!scrollArea) return;
+    
+    const targetScroll = scrollArea.scrollHeight;
+    const startPosition = scrollArea.scrollTop;
+    const distance = targetScroll - startPosition;
+    
+    // Smooth scroll animation
+    const duration = 300;
+    const startTime = performance.now();
+    
+    const animateScroll = (currentTime: number) => {
+      const elapsedTime = currentTime - startTime;
+      const progress = Math.min(elapsedTime / duration, 1);
+      const easeProgress = 1 - Math.pow(1 - progress, 3); // Cubic ease-out
+      
+      scrollArea.scrollTop = startPosition + distance * easeProgress;
+      
+      if (progress < 1) {
+        requestAnimationFrame(animateScroll);
+      } else {
+        setShowScrollButton(false);
+      }
+    };
+    
+    requestAnimationFrame(animateScroll);
+  }, []);
   
   const getIconForOutputType = (type: OutputType) => {
     switch (type) {
@@ -264,14 +352,21 @@ export default function OutputPane({ outputs }: OutputPaneProps) {
                 filteredOutputs.map((output, index) => (
                   <div 
                     key={index} 
-                    className={`mb-2 rounded-md p-2 flex items-start ${getBgClassForOutputType(output.type)}`}
+                    className={`mb-2 rounded-md p-2 flex items-start ${getBgClassForOutputType(output.type)} transition-opacity duration-300 animate-in fade-in`}
                   >
                     {getIconForOutputType(output.type) && (
                       <span className="mr-2 mt-0.5 flex-shrink-0">
                         {getIconForOutputType(output.type)}
                       </span>
                     )}
-                    <pre className={`whitespace-pre-wrap break-words font-mono ${getClassForOutputType(output.type)}`}>
+                    <pre 
+                      className={`whitespace-pre-wrap break-words font-mono tracking-tight leading-relaxed ${getClassForOutputType(output.type)}`}
+                      style={{ 
+                        textRendering: 'optimizeLegibility',
+                        WebkitFontSmoothing: 'antialiased',
+                        MozOsxFontSmoothing: 'grayscale'
+                      }}
+                    >
                       {output.content}
                     </pre>
                   </div>
@@ -279,26 +374,32 @@ export default function OutputPane({ outputs }: OutputPaneProps) {
               )}
             </ScrollArea>
             
-            {/* Scroll to bottom button - always visible */}
-            {filteredOutputs.length > 3 && (
+            {/* Scroll to bottom button with smooth transition */}
+            <div 
+              className={`
+                absolute bottom-4 right-4 transition-all duration-300 transform
+                ${showScrollButton ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}
+                ${filteredOutputs.length <= 3 ? 'hidden' : ''}
+              `}
+            >
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       size="icon"
                       variant="secondary"
-                      className="absolute bottom-4 right-4 shadow-md h-8 w-8 rounded-full opacity-80 hover:opacity-100 transition-opacity"
+                      className="shadow-md h-9 w-9 rounded-full hover:bg-primary hover:text-primary-foreground transition-colors"
                       onClick={scrollToBottom}
                     >
-                      <ChevronDown className="h-4 w-4" />
+                      <ChevronDown className="h-5 w-5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>
+                  <TooltipContent side="left">
                     <p>Scroll to bottom</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-            )}
+            </div>
           </div>
         </TabsContent>
         
