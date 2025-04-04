@@ -11,6 +11,7 @@ import {
 } from "@shared/schema";
 import vm from "vm2";
 import OpenAI from "openai";
+import * as esprima from 'esprima';
 
 // Initialize OpenAI API client
 const openai = new OpenAI({
@@ -972,6 +973,205 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error validating challenge:", error);
       res.status(500).json({ message: "Failed to validate challenge" });
+    }
+  });
+
+    // Define the execution step types
+  interface VisualExecutionStep {
+    lineNumber: number;
+    description: string;
+    variables?: Record<string, any>;
+    console?: string;
+    explanation?: string;
+  }
+  
+  /**
+   * Generates a step-by-step visualization of JavaScript code execution
+   * @param code The JavaScript code to parse and generate steps for
+   * @returns An array of execution steps with variable state, console output, and explanations
+   */
+  function generateVisualExecutionSteps(code: string): VisualExecutionStep[] {
+    try {
+      // Parse the code
+      const ast = esprima.parseScript(code, { loc: true });
+      
+      // Create the execution steps array
+      const steps: VisualExecutionStep[] = [];
+      
+      // Track variables
+      let variables: Record<string, any> = {};
+      let consoleOutput = '';
+      
+      // Process each statement in the AST
+      ast.body.forEach((node: any, index: number) => {
+        // Extract current line number
+        const lineNumber = node.loc.start.line;
+        
+        // Create a step based on the node type
+        switch (node.type) {
+          case 'VariableDeclaration': {
+            // Handle variable declarations
+            const varNames = node.declarations.map((decl: any) => decl.id.name);
+            const values = node.declarations.map((decl: any) => {
+              if (decl.init?.type === 'Literal') {
+                return decl.init.value;
+              } else if (decl.init?.type === 'Identifier') {
+                return `(value of ${decl.init.name})`;
+              } else if (decl.init?.type === 'BinaryExpression') {
+                return `(result of expression)`;
+              } else if (decl.init?.type === 'ObjectExpression') {
+                return '(object)';
+              } else if (decl.init?.type === 'ArrayExpression') {
+                return '(array)';
+              } else {
+                return 'undefined';
+              }
+            });
+            
+            // Update variables
+            node.declarations.forEach((decl: any, i: number) => {
+              variables[varNames[i]] = values[i];
+            });
+            
+            const varList = varNames.map((name: string, i: number) => `${name} = ${values[i]}`).join(', ');
+            steps.push({
+              lineNumber,
+              description: `Variable Declaration: ${varList}`,
+              variables: { ...variables },
+              explanation: `Declaring ${varNames.length > 1 ? 'variables' : 'variable'} ${varNames.join(', ')} and assigning ${values.length > 1 ? 'values' : 'value'}`
+            });
+            break;
+          }
+          
+          case 'ExpressionStatement': {
+            let description = 'Expression';
+            let explanation = 'Executing expression';
+            
+            // Check for console.log calls
+            if (node.expression.type === 'CallExpression' &&
+                node.expression.callee.type === 'MemberExpression' &&
+                node.expression.callee.object.name === 'console' &&
+                node.expression.callee.property.name === 'log') {
+              
+              const args = node.expression.arguments.map((arg: any) => {
+                if (arg.type === 'Literal') {
+                  return String(arg.value);
+                } else if (arg.type === 'Identifier') {
+                  return `${arg.name} (=${variables[arg.name]})`;
+                } else {
+                  return '(expression result)';
+                }
+              }).join(', ');
+              
+              description = `Console Output: console.log(${args})`;
+              explanation = `Outputting values to the console: ${args}`;
+              consoleOutput += `> ${args}\n`;
+            }
+            
+            // Assignment expressions
+            else if (node.expression.type === 'AssignmentExpression') {
+              const varName = node.expression.left.name;
+              let value = '(some value)';
+              
+              if (node.expression.right.type === 'Literal') {
+                value = String(node.expression.right.value);
+              } else if (node.expression.right.type === 'Identifier') {
+                value = `${node.expression.right.name} (=${variables[node.expression.right.name]})`;
+              }
+              
+              variables[varName] = value;
+              description = `Assignment: ${varName} = ${value}`;
+              explanation = `Assigning value ${value} to variable ${varName}`;
+            }
+            
+            steps.push({
+              lineNumber,
+              description,
+              variables: { ...variables },
+              console: consoleOutput || undefined,
+              explanation
+            });
+            break;
+          }
+          
+          case 'IfStatement': {
+            steps.push({
+              lineNumber,
+              description: 'Conditional: if statement',
+              variables: { ...variables },
+              explanation: 'Evaluating condition for if statement'
+            });
+            break;
+          }
+          
+          case 'ForStatement': {
+            steps.push({
+              lineNumber,
+              description: 'Loop: for statement',
+              variables: { ...variables },
+              explanation: 'Starting a for loop'
+            });
+            break;
+          }
+          
+          case 'FunctionDeclaration': {
+            const funcName = node.id.name;
+            steps.push({
+              lineNumber,
+              description: `Function Declaration: ${funcName}`,
+              variables: { ...variables },
+              explanation: `Defining function ${funcName} (not executing it yet)`
+            });
+            break;
+          }
+          
+          default:
+            steps.push({
+              lineNumber,
+              description: `${node.type}`,
+              variables: { ...variables },
+              explanation: `Executing ${node.type}`
+            });
+        }
+      });
+      
+      // Final step showing all variables and console output
+      if (Object.keys(variables).length > 0 || consoleOutput) {
+        steps.push({
+          lineNumber: -1,
+          description: 'Execution Complete',
+          variables: { ...variables },
+          console: consoleOutput || undefined,
+          explanation: 'Program execution has finished. Final state of variables shown.'
+        });
+      }
+      
+      return steps;
+    } catch (error) {
+      console.error('Error parsing code:', error);
+      return [{
+        lineNumber: 1,
+        description: 'Error parsing code',
+        explanation: `Couldn't parse code: ${error instanceof Error ? error.message : String(error)}`
+      }];
+    }
+  }
+  
+  // Visual code execution endpoint
+  apiRouter.post("/execute-visual", async (req, res) => {
+    const { code } = req.body;
+    
+    if (!code) {
+      return res.status(400).json({ message: "No code provided" });
+    }
+    
+    try {
+      // Generate execution steps
+      const steps = generateVisualExecutionSteps(code);
+      res.json({ steps });
+    } catch (error) {
+      console.error("Error generating visual execution steps:", error);
+      res.status(500).json({ message: "Failed to generate visual execution steps" });
     }
   });
 

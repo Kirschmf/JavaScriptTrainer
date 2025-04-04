@@ -149,3 +149,42 @@ code, pre, .monaco-editor {
 .pulse-animation {
   animation: pulse 2s infinite;
 }
+
+/* Visual Execution Styles */
+.visual-execution-highlight {
+  background-color: rgba(var(--primary-rgb), 0.15);
+  border-left: 2px solid var(--primary) !important;
+}
+
+.visual-execution-glyph {
+  background-color: var(--primary);
+  width: 4px !important;
+}
+
+.visual-execution-controls {
+  background-color: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem;
+}
+
+.variable-value {
+  font-family: 'Fira Code', monospace;
+  background-color: var(--border);
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.25rem;
+  font-size: 0.875rem;
+}
+
+.execution-step-panel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--card);
+  border-top: 1px solid var(--border);
+  padding: 0.5rem;
+  z-index: 10;
+  max-height: 40%;
+  overflow-y: auto;
+  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06);
+}
