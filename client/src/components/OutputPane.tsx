@@ -326,7 +326,7 @@ export default function OutputPane({ outputs }: OutputPaneProps) {
           )}
           
           <div className="relative flex-1">
-            <ScrollArea className="flex-1 p-3 font-mono text-sm" ref={scrollAreaRef}>
+            <ScrollArea className="flex-1 p-3 font-mono text-sm h-full overflow-y-auto" ref={scrollAreaRef}>
               {filteredOutputs.length === 0 ? (
                 <div className="text-muted-foreground italic flex flex-col items-center justify-center h-32 text-center">
                   <Terminal className="h-8 w-8 text-muted-foreground/50 mb-2" />
