@@ -8,7 +8,9 @@ import {
   Github, 
   BookOpen, 
   HelpCircle,
-  InfoIcon
+  InfoIcon,
+  Home as HomeIcon,
+  BookOpenCheck
 } from "lucide-react";
 import {
   Tooltip,
@@ -24,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/ThemeProvider";
+import { Link, useLocation } from "wouter";
 
 interface HeaderProps {
   onSave: () => void;
@@ -33,6 +36,8 @@ interface HeaderProps {
 }
 
 export default function Header({ onSave, onRun, toggleMobileMenu, isMobileMenuOpen }: HeaderProps) {
+  const [location] = useLocation();
+  
   return (
     <header className="bg-gradient-to-r from-primary/20 via-background to-background border-b border-border p-3 flex justify-between items-center">
       <div className="flex items-center">
@@ -42,6 +47,29 @@ export default function Header({ onSave, onRun, toggleMobileMenu, isMobileMenuOp
         </div>
         <div className="text-muted-foreground text-sm hidden sm:block">JavaScript Runtime Environment</div>
         <div className="text-muted-foreground text-xs hidden sm:block ml-2">by Matheus Kirsch</div>
+        
+        <div className="ml-6 flex space-x-1">
+          <Link href="/">
+            <Button 
+              variant={location === "/" ? "secondary" : "ghost"} 
+              size="sm" 
+              className="flex items-center"
+            >
+              <HomeIcon className="mr-1 h-4 w-4" />
+              <span>Home</span>
+            </Button>
+          </Link>
+          <Link href="/challenges">
+            <Button 
+              variant={location === "/challenges" ? "secondary" : "ghost"} 
+              size="sm" 
+              className="flex items-center"
+            >
+              <BookOpenCheck className="mr-1 h-4 w-4" />
+              <span>Challenges</span>
+            </Button>
+          </Link>
+        </div>
       </div>
       
       <div className="flex space-x-3">
