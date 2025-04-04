@@ -50,43 +50,31 @@ export default function OutputPane({ outputs }: OutputPaneProps) {
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const [scrollPosition, setScrollPosition] = useState(0);
   const lastOutputLengthRef = useRef(outputs.length);
+  const scrollTimeout = useRef<number>();
   
   const filteredOutputs = filter === 'all' 
     ? outputs 
     : outputs.filter(output => output.type === filter);
-  
+    
   // Scroll position detection hook with performance optimization
   useEffect(() => {
     const scrollArea = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
     if (!scrollArea) return;
     
-    let scrollTimeout: number;
-    let isScrolling = false;
-    
     const handleScroll = () => {
-      if (!isScrolling) {
-        // Using requestAnimationFrame to optimize the scroll handling
-        isScrolling = true;
-        requestAnimationFrame(() => {
-          const { scrollTop, scrollHeight, clientHeight } = scrollArea as HTMLDivElement;
-          const bottomThreshold = 80; // px from bottom
-          const isNearBottom = scrollHeight - scrollTop - clientHeight < bottomThreshold;
-          
-          setScrollPosition(scrollTop);
-          setShowScrollButton(!isNearBottom && filteredOutputs.length > 5);
-          
-          // Mark user as actively scrolling
-          if (!isUserScrolling) {
-            setIsUserScrolling(true);
-            // Clear any existing timeout
-            clearTimeout(scrollTimeout);
-            // Reset after a delay
-            scrollTimeout = window.setTimeout(() => setIsUserScrolling(false), 800);
-          }
-          
-          isScrolling = false;
-        });
-      }
+      const { scrollTop, scrollHeight, clientHeight } = scrollArea as HTMLDivElement;
+      const bottomThreshold = 80; // px from bottom
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < bottomThreshold;
+      
+      setScrollPosition(scrollTop);
+      setShowScrollButton(!isNearBottom && outputs.length > 5);
+      
+      // Mark user as actively scrolling
+      setIsUserScrolling(true);
+      // Clear any existing timeout
+      clearTimeout(scrollTimeout.current);
+      // Reset after a delay
+      scrollTimeout.current = window.setTimeout(() => setIsUserScrolling(false), 150);
     };
     
     scrollArea.addEventListener('scroll', handleScroll, { passive: true });
@@ -99,7 +87,6 @@ export default function OutputPane({ outputs }: OutputPaneProps) {
   
   // Auto-scroll to the bottom when new output is added ONLY if already at the bottom
   useEffect(() => {
-    // Check if outputs were added (not filtered or cleared)
     const outputsAdded = outputs.length > lastOutputLengthRef.current;
     lastOutputLengthRef.current = outputs.length;
     
@@ -108,16 +95,15 @@ export default function OutputPane({ outputs }: OutputPaneProps) {
     const scrollArea = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLDivElement;
     if (!scrollArea) return;
     
-    // Only auto-scroll if the user was already at the bottom or not actively scrolling
     const { scrollTop, scrollHeight, clientHeight } = scrollArea;
     const wasAtBottom = scrollHeight - scrollTop - clientHeight < 100;
     
-    if (wasAtBottom && !isUserScrolling) {
-      requestAnimationFrame(() => {
-        scrollToBottom();
-      });
+    if (wasAtBottom || outputs.length <= 1) {
+      requestAnimationFrame(scrollToBottom);
+    } else {
+      setShowScrollButton(true);
     }
-  }, [outputs.length, isUserScrolling]);
+  }, [outputs.length]);
   
   // Smooth scroll to bottom function
   const scrollToBottom = useCallback(() => {
@@ -377,9 +363,9 @@ export default function OutputPane({ outputs }: OutputPaneProps) {
             {/* Scroll to bottom button with smooth transition */}
             <div 
               className={`
-                absolute bottom-4 right-4 transition-all duration-300 transform
+                absolute bottom-4 right-4 transition-all duration-200 transform
                 ${showScrollButton ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}
-                ${filteredOutputs.length <= 3 ? 'hidden' : ''}
+                ${outputs.length <= 3 ? 'hidden' : ''}
               `}
             >
               <TooltipProvider>
