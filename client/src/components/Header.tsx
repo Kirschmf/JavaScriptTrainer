@@ -33,9 +33,10 @@ interface HeaderProps {
   onRun: () => void;
   toggleMobileMenu: () => void;
   isMobileMenuOpen: boolean;
+  hideActions?: boolean;
 }
 
-export default function Header({ onSave, onRun, toggleMobileMenu, isMobileMenuOpen }: HeaderProps) {
+export default function Header({ onSave, onRun, toggleMobileMenu, isMobileMenuOpen, hideActions = false }: HeaderProps) {
   const [location] = useLocation();
   
   return (
@@ -85,43 +86,47 @@ export default function Header({ onSave, onRun, toggleMobileMenu, isMobileMenuOp
         <div className="hidden md:flex space-x-3 items-center">
           <ThemeToggle />
           
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center"
-                  onClick={onSave}
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  <span>Save</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Save your code snippet</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="flex items-center bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-700"
-                  onClick={onRun}
-                >
-                  <PlayCircle className="mr-2 h-4 w-4" />
-                  <span>Run</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Execute your JavaScript code (Ctrl+Enter)</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          {!hideActions && (
+            <>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center"
+                      onClick={onSave}
+                    >
+                      <Save className="mr-2 h-4 w-4" />
+                      <span>Save</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Save your code snippet</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="flex items-center bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-700"
+                      onClick={onRun}
+                    >
+                      <PlayCircle className="mr-2 h-4 w-4" />
+                      <span>Run</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Execute your JavaScript code (Ctrl+Enter)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </>
+          )}
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
