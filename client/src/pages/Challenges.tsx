@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CodeEditor from "@/components/CodeEditor";
-import { ChallengeCategory, Challenge } from "@shared/schema";
+import { ChallengeCategory, Challenge, UserChallengeProgress } from "@shared/schema";
 import Header from "@/components/Header";
 import { Link } from "wouter";
 import { Check, ChevronRight, Play, Home, RefreshCw, RotateCcw, CheckCircle2, XCircle, ArrowLeftCircle } from "lucide-react";
@@ -36,27 +36,27 @@ export default function ChallengesPage() {
   const { toast } = useToast();
 
   // Fetch challenge categories
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<ChallengeCategory[]>({
     queryKey: ['/api/challenge-categories'],
     refetchOnWindowFocus: false
   });
 
   // Fetch challenges for the selected category
-  const { data: challenges = [], isLoading: challengesLoading } = useQuery({
+  const { data: challenges = [], isLoading: challengesLoading } = useQuery<Challenge[]>({
     queryKey: ['/api/challenges', selectedCategoryId],
     enabled: selectedCategoryId !== null,
     refetchOnWindowFocus: false
   });
 
   // Fetch progress data
-  const { data: progress = [], isLoading: progressLoading } = useQuery({
+  const { data: progress = [], isLoading: progressLoading } = useQuery<UserChallengeProgress[]>({
     queryKey: ['/api/challenge-progress'],
     refetchOnWindowFocus: false
   });
 
   // Load user progress for a challenge
-  const getProgressForChallenge = (challengeId: number) => {
-    return progress.find((p: any) => p.challengeId === challengeId);
+  const getProgressForChallenge = (challengeId: number): UserChallengeProgress | undefined => {
+    return progress.find((p) => p.challengeId === challengeId);
   };
 
   // Set the first category as selected by default
@@ -100,7 +100,7 @@ export default function ChallengesPage() {
         toast({
           title: "Success!",
           description: "All tests passed. Great job!",
-          variant: "success"
+          variant: "default"
         });
       }
     } catch (error) {
@@ -200,9 +200,18 @@ export default function ChallengesPage() {
                   <div className="mb-4">
                     <h3 className="font-medium mb-2">Hints:</h3>
                     <ul className="list-disc pl-5 space-y-1">
-                      {JSON.parse(selectedChallenge.hints).map((hint: string, i: number) => (
-                        <li key={i} className="text-sm text-muted-foreground">{hint}</li>
-                      ))}
+                      {
+                        (() => {
+                          try {
+                            const hints = selectedChallenge.hints ? JSON.parse(selectedChallenge.hints) : [];
+                            return Array.isArray(hints) ? hints.map((hint: string, i: number) => (
+                              <li key={i} className="text-sm text-muted-foreground">{hint}</li>
+                            )) : null;
+                          } catch (error) {
+                            return <li className="text-sm text-muted-foreground">No hints available</li>;
+                          }
+                        })()
+                      }
                     </ul>
                   </div>
                 </CardContent>
