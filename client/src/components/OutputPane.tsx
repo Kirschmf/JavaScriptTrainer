@@ -46,71 +46,20 @@ export default function OutputPane({ outputs }: OutputPaneProps) {
   const [filter, setFilter] = useState<OutputType | 'all'>('all');
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const [showScrollButton, setShowScrollButton] = useState(false);
   
   const filteredOutputs = filter === 'all' 
     ? outputs 
     : outputs.filter(output => output.type === filter);
   
-  // Function to scroll to the bottom
+  // Function to scroll to the bottom - only used by the manual scroll button
   const scrollToBottom = () => {
-    requestAnimationFrame(() => {
-      if (scrollAreaRef.current) {
-        const scrollArea = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-        if (scrollArea) {
-          scrollArea.scrollTop = scrollArea.scrollHeight;
-          setShowScrollButton(false);
-        }
+    if (scrollAreaRef.current) {
+      const scrollArea = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollArea) {
+        scrollArea.scrollTop = scrollArea.scrollHeight;
       }
-    });
+    }
   };
-  
-  // Listen for scroll events to show/hide the scroll button
-  useEffect(() => {
-    const scrollArea = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
-    
-    if (!scrollArea) return;
-    
-    const handleScroll = () => {
-      // Check if user has scrolled up at least 100px from bottom
-      const isScrolledUp = 
-        scrollArea.scrollHeight - scrollArea.scrollTop - scrollArea.clientHeight > 100;
-      
-      setShowScrollButton(isScrolledUp);
-    };
-    
-    scrollArea.addEventListener('scroll', handleScroll);
-    
-    return () => {
-      scrollArea.removeEventListener('scroll', handleScroll);
-    };
-  }, []);
-  
-  // Auto scroll to bottom when outputs change
-  useEffect(() => {
-    // Use requestAnimationFrame to ensure the DOM has updated before scrolling
-    requestAnimationFrame(() => {
-      if (scrollAreaRef.current) {
-        const scrollArea = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-        if (scrollArea) {
-          // Ensure we're at the very bottom
-          scrollArea.scrollTop = scrollArea.scrollHeight;
-        }
-      }
-    });
-    
-    // Add a small delay scroll as a fallback to handle any post-rendering content
-    const delayedScroll = setTimeout(() => {
-      if (scrollAreaRef.current) {
-        const scrollArea = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-        if (scrollArea) {
-          scrollArea.scrollTop = scrollArea.scrollHeight;
-        }
-      }
-    }, 50);
-    
-    return () => clearTimeout(delayedScroll);
-  }, [outputs, activeTab, filter]);
   
   const getIconForOutputType = (type: OutputType) => {
     switch (type) {
@@ -330,8 +279,8 @@ export default function OutputPane({ outputs }: OutputPaneProps) {
               )}
             </ScrollArea>
             
-            {/* Scroll to bottom button */}
-            {showScrollButton && filteredOutputs.length > 0 && (
+            {/* Scroll to bottom button - always visible */}
+            {filteredOutputs.length > 3 && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
