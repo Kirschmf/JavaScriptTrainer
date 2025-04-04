@@ -45,15 +45,6 @@ Backend
 🔐 VM2 for sandboxed code execution
 🚀 Quick Start
 
-Clone the repository:
-git clone https://github.com/yourusername/jsrunner.git
-
-Install dependencies:
-npm install
-
-Start the development server:
-npm run dev
-
 🌟 Why JSRunner?
 
 💻 Perfect for learning JavaScript
